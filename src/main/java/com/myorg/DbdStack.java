@@ -21,9 +21,7 @@ public class DbdStack extends Stack {
 
         productEventsDbd = Table.Builder.create(this, "ProductEventsDb")
                 .tableName("product-events")
-                .billingMode(BillingMode.PROVISIONED)
-                .readCapacity(1)
-                .writeCapacity(1)
+                .billingMode(BillingMode.PAY_PER_REQUEST)
                 .partitionKey(Attribute.builder()
                         .name("pk")
                         .type(AttributeType.STRING)
@@ -35,26 +33,6 @@ public class DbdStack extends Stack {
                 .timeToLiveAttribute("ttl")
                 .removalPolicy(RemovalPolicy.DESTROY)
                 .build();
-
-        productEventsDbd.autoScaleReadCapacity(EnableScalingProps.builder()
-                .minCapacity(1)
-                .maxCapacity(4)
-                .build())
-                .scaleOnUtilization(UtilizationScalingProps.builder()
-                        .targetUtilizationPercent(50)
-                        .scaleInCooldown(Duration.seconds(30))
-                        .scaleOutCooldown(Duration.seconds(30))
-                        .build());
-
-        productEventsDbd.autoScaleWriteCapacity(EnableScalingProps.builder()
-                        .minCapacity(1)
-                        .maxCapacity(4)
-                        .build())
-                .scaleOnUtilization(UtilizationScalingProps.builder()
-                        .targetUtilizationPercent(50)
-                        .scaleInCooldown(Duration.seconds(30))
-                        .scaleOutCooldown(Duration.seconds(30))
-                        .build());
     }
 
 
