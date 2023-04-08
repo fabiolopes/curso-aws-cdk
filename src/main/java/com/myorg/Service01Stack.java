@@ -8,6 +8,8 @@ import software.amazon.awscdk.services.ecs.patterns.ApplicationLoadBalancedTaskI
 import software.amazon.awscdk.services.elasticloadbalancingv2.HealthCheck;
 import software.amazon.awscdk.services.events.targets.SnsTopic;
 import software.amazon.awscdk.services.logs.LogGroup;
+import software.amazon.awscdk.services.s3.Bucket;
+import software.amazon.awscdk.services.sqs.Queue;
 import software.constructs.Construct;
 
 import java.util.Map;
@@ -15,11 +17,13 @@ import java.util.Map;
 // import software.amazon.awscdk.services.sqs.Queue;
 
 public class Service01Stack extends Stack {
-    public Service01Stack(final Construct scope, final String id, Cluster cluster, SnsTopic snsTopic) {
-        this(scope, id, null, cluster, snsTopic);
+    public Service01Stack(final Construct scope, final String id, Cluster cluster, SnsTopic snsTopic,
+                          Bucket invoiceBucket, Queue invoiceQueue) {
+        this(scope, id, null, cluster, snsTopic, invoiceBucket, invoiceQueue);
     }
 
-    public Service01Stack(final Construct scope, final String id, final StackProps props, Cluster cluster, SnsTopic productEventsTopic) {
+    public Service01Stack(final Construct scope, final String id, final StackProps props, Cluster cluster, SnsTopic productEventsTopic,
+                          Bucket invoiceBucket, Queue invoiceQueue) {
         super(scope, id, props);
 
         Map<String, String> envVariables = Map.of(
@@ -28,7 +32,9 @@ public class Service01Stack extends Stack {
             "SPRING_DATASOURCE_USERNAME", "admin",
             "SPRING_DATASOURCE_PASSWORD", Fn.importValue("rds-password"),
             "AWS_REGION", "us-east-2",
-            "AWS_SNS_TOPIC_PRODUCT_EVENTS_ARN", productEventsTopic.getTopic().getTopicArn()
+            "AWS_SNS_TOPIC_PRODUCT_EVENTS_ARN", productEventsTopic.getTopic().getTopicArn(),
+            "AWS_S3_BUCKET_INVOICE_NAME", invoiceBucket.getBucketName(),
+            "AWS_SQS_QUEUE_INVOICE_EVENTS_NAME", invoiceQueue.getQueueName()
         );
 
         ApplicationLoadBalancedFargateService service01 = ApplicationLoadBalancedFargateService.Builder.create(this, "ALB01")
@@ -41,7 +47,7 @@ public class Service01Stack extends Stack {
                 .taskImageOptions(
                         ApplicationLoadBalancedTaskImageOptions.builder()
                                 .containerName("aws-project01")
-                                .image(ContainerImage.fromRegistry("fabiobione/curso_aws_project01:1.4.0"))
+                                .image(ContainerImage.fromRegistry("fabiobione/curso_aws_project01:1.6.0"))
                                 .containerPort(8080)
                                 .logDriver(LogDriver.awsLogs(AwsLogDriverProps.builder()
                                         .logGroup(LogGroup.Builder.create(this, "Service01LogGroup")
@@ -74,5 +80,7 @@ public class Service01Stack extends Stack {
                 .build());
 
         productEventsTopic.getTopic().grantPublish(service01.getTaskDefinition().getTaskRole());
+        invoiceQueue.grantConsumeMessages(service01.getTaskDefinition().getTaskRole());
+        invoiceBucket.grantReadWrite(service01.getTaskDefinition().getTaskRole());
     }
 }
